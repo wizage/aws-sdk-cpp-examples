@@ -12,61 +12,51 @@ int main()
    Aws::SDKOptions options;
    Aws::InitAPI(options);
    {
+        /**
+         * This is the data you will be sending in. This will need to be base64 
+         * encoded to be translated correctly when you send it to the firehose.
+         * This is defined in the api here:
+         * http://docs.aws.amazon.com/firehose/latest/APIReference/API_Record.html
+         */
+        Aws::String jsonData = "This is awesome.";
+        Aws::Utils::ByteBuffer buffer = Aws::Utils::ByteBuffer(reinterpret_cast<const unsigned char*>(jsonData.data()), jsonData.size());
+        Aws::String base64data = Aws::Utils::HashingUtils::Base64Encode(buffer);
+        
+        /**
+         * This setups up your client that you will be using to communicate with
+         * the cloud. You can define your region, max connections and much more
+         * defined here:
+         * https://sdk.amazonaws.com/cpp/api/LATEST/struct_aws_1_1_client_1_1_client_configuration.html
+         */
+        Aws::String region = "us-west-2";
+        Aws::Client::ClientConfiguration clientConfig;
+        clientConfig.region = region;
 
-    Aws::String region = "us-west-2";
-    Aws::String jsonData = "This is awesome.";
-    Aws::Utils::ByteBuffer buffer = Aws::Utils::ByteBuffer(reinterpret_cast<const unsigned char*>(jsonData.data()), jsonData.size());
-    Aws::String base64data = Aws::Utils::HashingUtils::Base64Encode(buffer);
+        /**
+         * Setup the firehose client using the client we defined above. You also
+         * can pass in AWS Credentials if you want.
+         */
+        Aws::Firehose::FirehoseClient firehose_client = { clientConfig };
+        
+        
+        Aws::Utils::Json::JsonValue jsonObject;
+        jsonObject = jsonObject.WithString("Data", base64data);
 
-    Aws::Client::ClientConfiguration clientConfig;
-    clientConfig.region = region;
+        Aws::Firehose::Model::Record newRecord = jsonObject;
+        
+        Aws::Firehose::Model::PutRecordRequest recordRequest;
+        recordRequest.SetDeliveryStreamName("testFirehose");
+        recordRequest.SetRecord(newRecord);
 
-    Aws::Firehose::FirehoseClient firehose_client = { clientConfig };
-
-    Aws::Firehose::Model::PutRecordRequest requestSmall;
-
-    Aws::Utils::Json::JsonValue jsonStuff;
-    jsonStuff = jsonStuff.WithString("Data", base64data);
-
-
-    Aws::Firehose::Model::Record t = Aws::Firehose::Model::Record();
-
-    t = jsonStuff;
-
-    requestSmall.SetDeliveryStreamName("testFirehose");
-    requestSmall.SetRecord(t);
-
-    std::cout << requestSmall.SerializePayload() << std::endl;
-
-
-        /*
-        Aws::Firehose::Model::PutRecordBatchRequest::PutRecordBatchRequest requestStuff = Aws::Firehose::Model::PutRecordBatchRequest::PutRecordBatchRequest();
-        std::cout << "Record Batch Request" << std::endl;
-
-        std::cout << jsonStuff.GetInteger("test") << std::endl;
-
-        std::cout << "Json" << std::endl;
-
-        requestStuff.SetDeliveryStreamName("testFirehose");
-        requestStuff.AddRecords(t);
-        requestStuff.AddRecords(t);
-        requestStuff.AddRecords(t);
-
-        std::cout << "Batch created" << std::endl;
-        */
     
-    auto outcome_push = firehose_client.PutRecord(requestSmall);
+        auto outcome_push = firehose_client.PutRecord(recordRequest);
 
-    std::cout << "Sent" << std::endl;
-
-    if (outcome_push.IsSuccess()){
-        std::cout << "We put stuff in there" << std::endl;
-    } else
-    {
-        std::cout << "Error log: " << outcome_push.GetError().GetExceptionName() << " - " << outcome_push.GetError().GetMessage() << std::endl;
-    }
-
-      // make your SDK calls here.
+        if (outcome_push.IsSuccess()){
+            std::cout << "Successfully pushed data to the firehose" << std::endl;
+        } else
+        {
+            std::cout << "Error log: " << outcome_push.GetError().GetExceptionName() << " - " << outcome_push.GetError().GetMessage() << std::endl;
+        }
    }
    Aws::ShutdownAPI(options);
    return 0;
