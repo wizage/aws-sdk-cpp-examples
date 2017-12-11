@@ -13,16 +13,6 @@ int main()
    Aws::InitAPI(options);
    {
         /**
-         * This is the data you will be sending in. This will need to be base64 
-         * encoded to be translated correctly when you send it to the firehose.
-         * This is defined in the api here:
-         * http://docs.aws.amazon.com/firehose/latest/APIReference/API_Record.html
-         */
-        Aws::String jsonData = "This is awesome.";
-        Aws::Utils::ByteBuffer buffer = Aws::Utils::ByteBuffer(reinterpret_cast<const unsigned char*>(jsonData.data()), jsonData.size());
-        Aws::String base64data = Aws::Utils::HashingUtils::Base64Encode(buffer);
-        
-        /**
          * This setups up your client that you will be using to communicate with
          * the cloud. You can define your region, max connections and much more
          * defined here:
@@ -37,20 +27,39 @@ int main()
          * can pass in AWS Credentials if you want.
          */
         Aws::Firehose::FirehoseClient firehose_client = { clientConfig };
-        
-        
+         
+        /**
+         * This is the data you will be sending in. This will need to be base64 
+         * encoded to be translated correctly when you send it to the firehose.
+         * This is defined in the api here:
+         * http://docs.aws.amazon.com/firehose/latest/APIReference/API_Record.html
+         */
+        Aws::String jsonData = "This is awesome.";
+        Aws::Utils::ByteBuffer buffer = Aws::Utils::ByteBuffer(reinterpret_cast<const unsigned char*>(jsonData.data()), jsonData.size());
+        Aws::String base64data = Aws::Utils::HashingUtils::Base64Encode(buffer);
         Aws::Utils::Json::JsonValue jsonObject;
         jsonObject = jsonObject.WithString("Data", base64data);
-
+        
+        /**
+         * Creating a record can be done straight from the JSON object you
+         * created above.
+         */
         Aws::Firehose::Model::Record newRecord = jsonObject;
         
+        /**
+         * This is where you define what record you want to send and which
+         * firehose stream you want to put your record into.
+         */
         Aws::Firehose::Model::PutRecordRequest recordRequest;
         recordRequest.SetDeliveryStreamName("testFirehose");
         recordRequest.SetRecord(newRecord);
 
-    
+        /**
+         * Pushes the request to the api and waits for a response. After you
+         * get a response you can check to see if it was successful and output
+         * an error if not.
+         */
         auto outcome_push = firehose_client.PutRecord(recordRequest);
-
         if (outcome_push.IsSuccess()){
             std::cout << "Successfully pushed data to the firehose" << std::endl;
         } else
